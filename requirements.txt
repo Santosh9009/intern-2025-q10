@@ -1,0 +1,11 @@
+python-dotenv
+google-genai
+requests
+pytest
+langchain
+langchain-google-genai
+langchain-core
+fastapi
+uvicorn
+pydantic 
+uvicorn
