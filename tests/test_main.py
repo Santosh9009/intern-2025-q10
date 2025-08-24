@@ -201,14 +201,19 @@ def test_chatbot_rate_limit_status():
     assert status['capacity'] == 10
 
 # Original tests with API key requirements
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set")
+def is_valid_api_key():
+    """Check if we have a valid API key (not a test key)."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    return api_key and api_key != "test_key_for_ci" and len(api_key) > 10
+
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set")
 def test_llm_response_basic():
     """Test basic LLM response."""
     out = call_llm("Reply with a single word: Hello.")
     assert isinstance(out, str)
     assert len(out.strip()) > 0
 
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set")
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set")
 def test_chatbot_memory():
     """Test that the chatbot remembers conversation context."""
     reset_rate_limiter()  # Reset for clean test
@@ -229,7 +234,7 @@ def test_chatbot_memory():
     history = chatbot.get_conversation_history()
     assert len(history) == 4  # 2 user messages + 2 assistant messages
 
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set")
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set")
 def test_chatbot_database_integration():
     """Test that chatbot logs to database correctly."""
     reset_rate_limiter()
@@ -261,7 +266,7 @@ def test_chatbot_database_integration():
         assert history[0]['prompt'] == "Hello, test message"
         assert history[0]['response'] == response
 
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set") 
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set") 
 def test_chatbot_database_cache_tracking():
     """Test that database correctly tracks cache hits."""
     reset_rate_limiter()
@@ -295,7 +300,7 @@ def test_chatbot_database_cache_tracking():
         assert stats['cached_entries'] == 1
         assert stats['cache_hit_rate'] == 50.0
 
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set")
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set")
 def test_chatbot_memory_limit():
     """Test that the chatbot only remembers last 4 turns."""
     reset_rate_limiter()  # Reset for clean test
@@ -313,7 +318,7 @@ def test_chatbot_memory_limit():
     history = chatbot.get_conversation_history()
     assert len(history) <= 8  # 4 turns × 2 messages per turn
 
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set")
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set")
 def test_chatbot_clear_memory():
     """Test that clearing memory works."""
     reset_rate_limiter()  # Reset for clean test
@@ -328,7 +333,7 @@ def test_chatbot_clear_memory():
     chatbot.clear_memory()
     assert len(chatbot.get_conversation_history()) == 0
 
-@pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="No GEMINI_API_KEY set")
+@pytest.mark.skipif(not is_valid_api_key(), reason="No valid GEMINI_API_KEY set")
 def test_chatbot_with_rate_limiting_integration():
     """Integration test for chatbot with rate limiting."""
     reset_rate_limiter()
