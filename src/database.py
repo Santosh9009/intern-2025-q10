@@ -158,6 +158,15 @@ class ChatDatabase:
             deleted_count = cursor.rowcount
             conn.commit()
             return deleted_count
+    
+    def get_current_timestamp(self) -> str:
+        """
+        Get current timestamp in ISO format.
+        
+        Returns:
+            Current timestamp as ISO string
+        """
+        return datetime.now().isoformat()
 
 # Global database instance
 _db_instance = None

@@ -1,17 +1,35 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from src.database import get_database
 from src.llm_client import ChatbotWithMemory
 from src.config import env
+from src.rate_limiter import RateLimitError
 import uvicorn
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Chat History API",
     description="API for retrieving chat history from SQLite database",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Add CORS middleware for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure this for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Initialize database
@@ -107,6 +125,10 @@ async def chat_with_bot(request: ChatRequest):
         Chat response with token usage and cache information
     """
     try:
+        # Validate input
+        if not request.message or not request.message.strip():
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+        
         # Initialize chatbot with specified model or default
         chatbot = ChatbotWithMemory(model=request.model)
         
@@ -115,7 +137,7 @@ async def chat_with_bot(request: ChatRequest):
         hits_before = cache_stats_before['hits']
         
         # Get response from chatbot (automatically logs to database)
-        response = chatbot.chat(request.message)
+        response = chatbot.chat(request.message.strip())
         
         # Check if this was a cache hit
         cache_stats_after = chatbot.get_cache_stats()
@@ -126,6 +148,8 @@ async def chat_with_bot(request: ChatRequest):
         from src.database import estimate_tokens
         total_tokens = estimate_tokens(request.message) + estimate_tokens(response)
         
+        logger.info(f"Chat request processed: {len(request.message)} chars, {total_tokens} tokens, cached: {was_cached}")
+        
         return ChatResponse(
             response=response,
             tokens_used=total_tokens,
@@ -133,7 +157,11 @@ async def chat_with_bot(request: ChatRequest):
             model_name=chatbot.model_name
         )
         
+    except RateLimitError as e:
+        logger.warning(f"Rate limit exceeded: {e.message}")
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
+        logger.error(f"Chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 @app.delete("/history")
@@ -152,14 +180,25 @@ async def clear_chat_history():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """
+    Health check endpoint for container orchestration and monitoring.
+    Checks database connectivity and API functionality.
+    """
     try:
         # Test database connection
         total_entries = database.get_total_entries()
+        
+        # Test API key configuration (without making actual API call)
+        from src.config import env
+        api_key = env("GEMINI_API_KEY")
+        has_api_key = bool(api_key and len(api_key.strip()) > 0)
+        
         return {
             "status": "healthy",
             "database": "connected",
-            "total_entries": total_entries
+            "total_entries": total_entries,
+            "api_configured": has_api_key,
+            "timestamp": database.get_current_timestamp()
         }
     except Exception as e:
         return JSONResponse(
@@ -167,7 +206,8 @@ async def health_check():
             content={
                 "status": "unhealthy",
                 "database": "error",
-                "error": str(e)
+                "error": str(e),
+                "timestamp": None
             }
         )
 
