@@ -2,6 +2,11 @@
 
 This assignment demonstrates a CLI chatbot with conversation memory, rate limiting protection, LRU caching with TTL, AND comprehensive SQLite database logging with a FastAPI endpoint for history retrieval.
 
+## 🚀 Live Deployment - Demo-Links
+
+- **Backend API**: https://intern-2025-q10-production.up.railway.app
+- **Frontend UI**: https://chatbot-lime-xi.vercel.app/
+
 ## Features
 
 - 🤖 **Interactive CLI chatbot** with Google's Generative AI (Gemini)
