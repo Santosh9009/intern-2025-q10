@@ -46,6 +46,7 @@ jobs:
 
     - name: Run tests with pytest
       run: |
+        export PYTHONPATH="${PYTHONPATH}:${PWD}"
         pytest tests/ -v --tb=short
 
     - name: Run code quality checks
